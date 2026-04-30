@@ -1,0 +1,80 @@
+<?xml version="1.0" encoding="UTF-8"?>
+
+<mule xmlns:bti="http://www.mulesoft.org/schema/mule/ee/bti" xmlns:jms="http://www.mulesoft.org/schema/mule/jms"
+	xmlns:ee="http://www.mulesoft.org/schema/mule/ee/core"
+	xmlns:vm="http://www.mulesoft.org/schema/mule/vm" xmlns:db="http://www.mulesoft.org/schema/mule/db" xmlns:http="http://www.mulesoft.org/schema/mule/http" xmlns="http://www.mulesoft.org/schema/mule/core" xmlns:doc="http://www.mulesoft.org/schema/mule/documentation" xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance" xsi:schemaLocation="http://www.mulesoft.org/schema/mule/core http://www.mulesoft.org/schema/mule/core/current/mule.xsd
+http://www.mulesoft.org/schema/mule/http http://www.mulesoft.org/schema/mule/http/current/mule-http.xsd
+http://www.mulesoft.org/schema/mule/db http://www.mulesoft.org/schema/mule/db/current/mule-db.xsd
+http://www.mulesoft.org/schema/mule/vm http://www.mulesoft.org/schema/mule/vm/current/mule-vm.xsd
+http://www.mulesoft.org/schema/mule/ee/core http://www.mulesoft.org/schema/mule/ee/core/current/mule-ee.xsd
+http://www.mulesoft.org/schema/mule/jms http://www.mulesoft.org/schema/mule/jms/current/mule-jms.xsd
+http://www.mulesoft.org/schema/mule/ee/bti http://www.mulesoft.org/schema/mule/ee/bti/current/mule-bti-ee.xsd">
+	<http:listener-config name="HTTP_Listener_config" doc:name="HTTP Listener config" doc:id="8a9a6abb-2afb-40fa-8ec0-d5b67628e32f" >
+		<http:listener-connection host="0.0.0.0" port="8081" />
+	</http:listener-config>
+	<db:config name="Database_Config" doc:name="Database Config" doc:id="7040f0c3-7bee-40fe-ba01-9282629225fc" >
+		<db:my-sql-connection host="127.0.0.1" port="3306" user="root" password="root" database="hrms_transaction_poc"/>
+	</db:config>
+	<jms:config name="JMS_Config" doc:name="JMS Config" doc:id="c20b0ad5-af2f-4dea-9876-84aeabb03148" >
+		<jms:active-mq-connection username="admin" password="admin">
+			<jms:factory-configuration/>
+		</jms:active-mq-connection>
+		<jms:consumer-config ackMode="MANUAL" />
+	</jms:config>
+	<flow name="transaction-basic-Flow" doc:id="84f7a7df-2b4a-474b-ae88-885a1662ecf8" >
+		<http:listener doc:name="Listener" doc:id="43a9c6ae-a315-4eb9-bda9-93830c4654d2" config-ref="HTTP_Listener_config" path="/basic"/>
+		<db:select doc:name="Select" doc:id="03fec1a4-01f7-4ea5-82b0-9912c1e988a7" config-ref="Database_Config">
+			<db:sql><![CDATA[SELECT * FROM hrms_transaction_poc.customer_details;]]></db:sql>
+		</db:select>
+		<ee:transform doc:name="Transform Message" doc:id="7332c3c8-e749-45c0-b8af-e2a9c27f1dac">
+			<ee:message>
+				<ee:set-payload><![CDATA[%dw 2.0
+output application/json
+---
+payload
+]]></ee:set-payload>
+			</ee:message>
+		</ee:transform>
+		<db:insert doc:name="Insert" doc:id="34760e2d-337c-4221-a3da-76481a54196f" config-ref="Database_Config">
+			<db:sql ><![CDATA[INSERT INTO hrms_transaction_poc.new_customers (name, address, age)
+SELECT name, address, age
+FROM hrms_transaction_poc.customer_details
+WHERE age > 30;]]></db:sql>
+		</db:insert>
+		<ee:transform doc:name="Transform Message" doc:id="eba7d7cb-b094-461d-a9ac-82fa69aeee4c" >
+			<ee:message >
+				<ee:set-payload ><![CDATA[%dw 2.0
+output application/json
+---
+payload]]></ee:set-payload>
+			</ee:message>
+		</ee:transform>
+		<!-- [STUDIO:"Raise error"]<raise-error doc:name="Raise error" doc:id="90b692cc-aee3-4a58-b027-785611e85a33" type="CUSTOM:ERROR" description="Custom Error"/> [STUDIO] -->
+	</flow>
+	<flow name="transaction-rollback-onerror" doc:id="19466406-4180-445b-bd2b-c020dc36e337" >
+		<http:listener doc:name="Listener" doc:id="b9f0b6ee-42df-446e-829f-68138b92c755" config-ref="HTTP_Listener_config" path="/tx-local"/>
+		<try doc:name="Try" doc:id="f43290df-b08d-4ae1-b3b2-e06fdaf159d1" transactionalAction="ALWAYS_BEGIN">
+			<db:select doc:name="Select" doc:id="fe460dbf-8765-4fe3-b62a-05bd65c24024" config-ref="Database_Config">
+				<db:sql ><![CDATA[SELECT * FROM hrms_transaction_poc.customer_details;]]></db:sql>
+			</db:select>
+			<ee:transform doc:name="Transform Message" doc:id="36a3b173-2ca2-47e0-9d1d-b97bf86b2ee2">
+			<ee:message>
+				<ee:set-payload><![CDATA[%dw 2.0
+output application/json
+---
+payload
+]]></ee:set-payload>
+			</ee:message>
+		</ee:transform>
+			<db:insert doc:name="Insert" doc:id="f99ca0f0-cb7f-4455-bfc6-d1c887dfa90e" config-ref="Database_Config">
+			<db:sql><![CDATA[INSERT INTO hrms_transaction_poc.new_customers (name, address, age)
+SELECT name, address, age
+FROM hrms_transaction_poc.customer_details
+WHERE age > 30;]]></db:sql>
+		</db:insert>
+			<!-- [STUDIO:"Raise error"]<raise-error doc:name="Raise error" doc:id="a4b8d9a3-ce71-4dce-9c0e-0a3e8875966e" type="DATA:INVALID_DATA" description="Invalid Data"/> [STUDIO] -->
+		</try>
+		<logger level="INFO" doc:name="Logger" doc:id="b7f16129-5719-448f-af46-e7a03153287e" />
+	</flow>
+	
+</mule>
