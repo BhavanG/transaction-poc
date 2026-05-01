@@ -35,16 +35,16 @@ jobs:
       run: mvn clean package -DskipTests -s .maven/settings.xml
 
   # 5. Publish to Exchange
-  - name: Publish to Anypoint Exchange
-    run: |
+    - name: Publish to Anypoint Exchange
+      run: |
         mvn deploy \
         -DskipTests \
         -DmuleDeploy=false \
         -s .maven/settings.xml
 
   # 6. Deploy to CloudHub 2.0
-  - name: Deploy to CloudHub 2.0
-    run: |
+    - name: Deploy to CloudHub 2.0
+      run: |
         mvn deploy -X \
         -DmuleDeploy \
         -s .maven/settings.xml
