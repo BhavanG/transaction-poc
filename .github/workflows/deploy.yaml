@@ -12,6 +12,7 @@ jobs:
     env:
       CONNECTED_APP_CLIENTID: ${{ secrets.CONNECTED_APP_CLIENTID }}
       CONNECTED_APP_CLIENTSECRET: ${{ secrets.CONNECTED_APP_CLIENTSECRET }}
+      FORCE_JAVASCRIPT_ACTIONS_TO_NODE24: true
 
     steps:
       # 1. Checkout code
